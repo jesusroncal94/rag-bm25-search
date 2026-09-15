@@ -1,0 +1,23 @@
+[project]
+name = "rag-assistant"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx2>=2.13.0",
+    "pytest",
+    "uvicorn>=0.53.0",
+]
+
+[project.scripts]
+rag-assistant = "rag.api:main"
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "rag"
+module-root = ""
