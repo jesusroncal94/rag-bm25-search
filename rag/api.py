@@ -1,21 +1,24 @@
 from fastapi import FastAPI
 
+from rag import prompt
 from rag.chunking import Chunk
 from rag.config import RETRIEVAL_FLOOR
 from rag.confidence import coverage
 from rag.contracts import AskRequest, AskResponse, Source
 from rag.corpus import load_corpus
+from rag.model import build_model
 from rag.search import BM25Index
 
 SNIPPET_LENGTH = 240
 
 app = FastAPI(title="RAG Assistant", version="0.1.0")
 index = BM25Index(load_corpus())
+model = build_model()
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "model": model.name, "prompt_version": prompt.VERSION}
 
 
 @app.post("/ask")
@@ -25,14 +28,22 @@ def ask(request: AskRequest) -> AskResponse:
     if not found:
         return AskResponse.decline("insufficient_evidence", 0.0)
 
-    best, _ = found[0]
-    confidence = coverage(index, request.question, best)
+    chunks = [chunk for chunk, _ in found]
+    confidence = coverage(index, request.question, chunks[0])
     sources = [to_source(chunk, score) for chunk, score in found]
 
     if confidence < RETRIEVAL_FLOOR:
         return AskResponse.decline("insufficient_evidence", confidence, sources)
 
-    return AskResponse.decline("model_unavailable", confidence, sources)
+    generated = model.generate(prompt.render(request.question, chunks))
+
+    if generated.failed:
+        return AskResponse.decline("model_unavailable", confidence, sources, prompt.VERSION)
+
+    if "INSUFFICIENT_EVIDENCE" in generated.text:
+        return AskResponse.decline("insufficient_evidence", confidence, sources, prompt.VERSION)
+
+    return AskResponse.answered(generated.text, confidence, sources, prompt.VERSION)
 
 
 def to_source(chunk: Chunk, score: float) -> Source:

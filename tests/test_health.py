@@ -2,11 +2,12 @@ from fastapi.testclient import TestClient
 
 from rag.api import app
 
-client= TestClient(app)
+client = TestClient(app)
 
 
-def test_health_returns_ok():
-    response = client.get("/health")
+def test_health_reports_what_is_running():
+    body = client.get("/health").json()
 
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert body["status"] == "ok"
+    assert body["model"]
+    assert body["prompt_version"]
