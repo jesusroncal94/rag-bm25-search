@@ -14,6 +14,7 @@ FIRST_SENTENCE = re.compile(r"^.*?[.!?](?=\s|$)")
 class Generated:
     text: str
     failed: bool = False
+    error: str | None = None
 
 
 class FakeModel:
@@ -57,8 +58,10 @@ class HttpModel:
             response.raise_for_status()
 
             return Generated(response.json()["choices"][0]["message"]["content"].strip())
-        except httpx2.HTTPError:
-            return Generated("", failed=True)
+        except httpx2.HTTPStatusError as exc:
+            return Generated("", failed=True, error=f"HTTP {exc.response.status_code}")
+        except httpx2.HTTPError as exc:
+            return Generated("", failed=True, error=type(exc).__name__)
 
 
 def build_model():

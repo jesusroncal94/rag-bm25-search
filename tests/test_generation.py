@@ -1,6 +1,6 @@
 from rag import prompt
 from rag.corpus import load_corpus
-from rag.model import FakeModel, Generated, HttpModel
+from rag.model import FakeModel, HttpModel
 
 chunks = load_corpus()[:2]
 
@@ -24,4 +24,6 @@ def test_a_provider_failure_is_reported_not_raised():
     broken = HttpModel("http://127.0.0.1:1", "key", "model", timeout=0.2)
     result = broken.generate("anything")
 
-    assert result == Generated("", failed=True)
+    assert result.failed
+    assert result.text == ""
+    assert result.error
