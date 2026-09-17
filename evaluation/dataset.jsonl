@@ -1,0 +1,32 @@
+{"split": "dev", "question": "how long does a card block take to stop payments", "answerable": true, "gold": "card-security-policy#blocking-a-card"}
+{"split": "dev", "question": "what is the SEPA cut-off time", "answerable": true, "gold": "payments-and-transfers#sepa-credit-transfer"}
+{"split": "dev", "question": "how many days do I have to dispute a transaction", "answerable": true, "gold": "disputes-and-chargebacks#raising-a-dispute"}
+{"split": "dev", "question": "am I liable if someone used my card without permission", "answerable": true, "gold": "disputes-and-chargebacks#liability-for-unauthorised-payments"}
+{"split": "dev", "question": "when does a contactless payment need a PIN", "answerable": true, "gold": "account-and-verification#strong-customer-authentication"}
+{"split": "dev", "question": "how long until a replacement card arrives", "answerable": true, "gold": "card-security-policy#lost-or-stolen-cards"}
+{"split": "dev", "question": "can I cancel an instant transfer", "answerable": true, "gold": "payments-and-transfers#sepa-instant"}
+{"split": "dev", "question": "what happens if my identity verification fails three times", "answerable": true, "gold": "account-and-verification#identity-verification"}
+{"split": "dev", "question": "do direct debits still work after blocking my card", "answerable": true, "gold": "card-security-policy#blocking-a-card"}
+{"split": "dev", "question": "what fee applies to payments in foreign currency", "answerable": true, "gold": "payments-and-transfers#currency-conversion"}
+{"split": "dev", "question": "what interest rate do you pay on savings", "answerable": false, "gold": null}
+{"split": "dev", "question": "how do I apply for a mortgage", "answerable": false, "gold": null}
+{"split": "dev", "question": "which branch is closest to Alexanderplatz", "answerable": false, "gold": null}
+{"split": "dev", "question": "what is the fee for a business account", "answerable": false, "gold": null}
+{"split": "dev", "question": "can I buy stocks through the app", "answerable": false, "gold": null}
+{"split": "dev", "question": "how do I open a joint account with my partner", "answerable": false, "gold": null}
+{"split": "holdout", "question": "can support staff unblock my card after fraud monitoring blocked it", "answerable": true, "gold": "card-security-policy#suspected-fraud"}
+{"split": "holdout", "question": "why did my subscriptions stop working after I got a new card", "answerable": true, "gold": "card-security-policy#lost-or-stolen-cards"}
+{"split": "holdout", "question": "what is the standard daily ceiling for card payments", "answerable": true, "gold": "card-security-policy#pin-and-card-limits"}
+{"split": "holdout", "question": "what is the largest single SEPA credit transfer I can send", "answerable": true, "gold": "payments-and-transfers#sepa-credit-transfer"}
+{"split": "holdout", "question": "what happens when the receiving bank does not support SEPA Instant", "answerable": true, "gold": "payments-and-transfers#sepa-instant"}
+{"split": "holdout", "question": "when do returned funds appear back in my account", "answerable": true, "gold": "payments-and-transfers#failed-and-returned-transfers"}
+{"split": "holdout", "question": "do I get provisional credit when an item never arrived", "answerable": true, "gold": "disputes-and-chargebacks#provisional-credit"}
+{"split": "holdout", "question": "how long can a chargeback investigation take in total", "answerable": true, "gold": "disputes-and-chargebacks#investigation-timeline"}
+{"split": "holdout", "question": "what is the minimum age to open an account", "answerable": true, "gold": "account-and-verification#eligibility"}
+{"split": "holdout", "question": "how long can I download statements after closing my account", "answerable": true, "gold": "account-and-verification#closing-an-account"}
+{"split": "holdout", "question": "how do I set up a standing order", "answerable": false, "gold": null}
+{"split": "holdout", "question": "what documents do I need for a car loan", "answerable": false, "gold": null}
+{"split": "holdout", "question": "can I add a second cardholder to my account", "answerable": false, "gold": null}
+{"split": "holdout", "question": "what is the phone number for customer support", "answerable": false, "gold": null}
+{"split": "holdout", "question": "how do I change my registered email address", "answerable": false, "gold": null}
+{"split": "holdout", "question": "is there a fee for using the app abroad on wifi", "answerable": false, "gold": null}
