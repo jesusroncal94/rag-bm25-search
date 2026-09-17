@@ -30,3 +30,12 @@
 {"split": "holdout", "question": "what is the phone number for customer support", "answerable": false, "gold": null}
 {"split": "holdout", "question": "how do I change my registered email address", "answerable": false, "gold": null}
 {"split": "holdout", "question": "is there a fee for using the app abroad on wifi", "answerable": false, "gold": null}
+{"split": "holdout", "style": "natural", "question": "my card got stolen yesterday while I was travelling and I want to know how long it takes for a replacement to arrive at my address", "answerable": true, "gold": "card-security-policy#lost-or-stolen-cards"}
+{"split": "holdout", "style": "natural", "question": "I sent a transfer this morning and it has not arrived yet, when exactly does a standard SEPA credit transfer reach the other bank", "answerable": true, "gold": "payments-and-transfers#sepa-credit-transfer"}
+{"split": "holdout", "style": "natural", "question": "someone made a payment with my card that I did not authorise, how much of that money am I responsible for paying", "answerable": true, "gold": "disputes-and-chargebacks#liability-for-unauthorised-payments"}
+{"split": "holdout", "style": "natural", "question": "I tried to verify my identity three times and it keeps failing, what happens now and when can I try again", "answerable": true, "gold": "account-and-verification#identity-verification"}
+{"split": "holdout", "style": "natural", "question": "if I block my card from the app will my monthly direct debits for rent and electricity also stop being collected", "answerable": true, "gold": "card-security-policy#blocking-a-card"}
+{"split": "holdout", "style": "natural", "question": "I want to understand what happens to my money when a transfer bounces back, how many days until it is back in my account", "answerable": true, "gold": "payments-and-transfers#failed-and-returned-transfers"}
+{"split": "holdout", "style": "natural", "question": "I am planning to travel to Japan next month and I would like to know if there is any way to get cash in yen before I leave", "answerable": false, "gold": null}
+{"split": "holdout", "style": "natural", "question": "my salary has just increased and I would like to know what savings products you offer so I can put some money aside every month", "answerable": false, "gold": null}
+{"split": "holdout", "style": "natural", "question": "I received a letter about a direct debit I do not recognise and I want to know how to stop that company from taking money from me again", "answerable": false, "gold": null}

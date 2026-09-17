@@ -1,5 +1,5 @@
 {
-  "retrieved_gold": 10,
-  "answered": 8,
-  "declined": 5
+  "retrieved_gold_rate": 1.0,
+  "answered_rate": 0.562,
+  "declined_rate": 0.889
 }

@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import time
 
 from pathlib import Path
 from unittest.mock import patch
@@ -27,12 +28,21 @@ def ask(question: str) -> dict:
     return client.post("/ask", json={"question": question}).json()
 
 
-def measure(rows: list[dict]) -> dict:
-    answered = declined = retrieved_gold = answerable = unanswerable = 0
+def measure(rows: list[dict], pace: float = 0.0) -> dict:
+    answered = declined = retrieved_gold = answerable = unanswerable = unavailable = 0
     failures: list[str] = []
 
     for row in rows:
+        if pace:
+            time.sleep(pace)
+
         body = ask(row["question"])
+
+        if body["reason"] == "model_unavailable":
+            unavailable += 1
+            failures.append(f"provider unavailable: {row['question']}")
+
+            continue
 
         if row["answerable"]:
             answerable += 1
@@ -44,7 +54,7 @@ def measure(rows: list[dict]) -> dict:
                 answered += 1
             else:
                 failures.append(
-                    f"declined an answerable question "
+                    f"declined an answerable question [{body['reason']}] "
                     f"(confidence {body['retrieval_confidence']}): {row['question']}"
                 )
         else:
@@ -61,6 +71,7 @@ def measure(rows: list[dict]) -> dict:
         "declined": declined,
         "unanswerable": unanswerable,
         "retrieved_gold": retrieved_gold,
+        "unavailable": unavailable,
         "failures": failures,
     }
 
@@ -70,6 +81,9 @@ def report(split: str, result: dict) -> None:
     print(f"   gold chunk retrieved   {result['retrieved_gold']:2d} of {result['answerable']:2d}")
     print(f"   answered when it could {result['answered']:2d} of {result['answerable']:2d}")
     print(f"   declined when it must  {result['declined']:2d} of {result['unanswerable']:2d}")
+
+    if result["unavailable"]:
+        print(f"   provider unavailable   {result['unavailable']:2d}, excluded from the counts above")
 
     for failure in result["failures"]:
         print(f"      {failure}")
@@ -97,6 +111,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep", action="store_true", help="try other retrieval floors")
     parser.add_argument("--record", action="store_true", help="save these numbers as the baseline")
+    parser.add_argument("--pace", type=float, default=0.0,
+                        help="seconds between questions, to stay under a provider rate limit")
     args = parser.parse_args()
 
     if args.sweep:
@@ -106,21 +122,29 @@ def main() -> int:
 
     print(f"retrieval floor {RETRIEVAL_FLOOR}\n")
 
-    results = {split: measure(load(split)) for split in ("dev", "holdout")}
+    results = {split: measure(load(split), args.pace) for split in ("dev", "holdout")}
 
     for split, result in results.items():
         report(split, result)
 
+    holdout_rows = load("holdout")
+
+    for style in ("terse", "natural"):
+        rows = [row for row in holdout_rows if row.get("style", "terse") == style]
+
+        if rows:
+            report(f"holdout, {style} phrasing", measure(rows, args.pace))
+
     holdout = results["holdout"]
     measured = {
-        "retrieved_gold": holdout["retrieved_gold"],
-        "answered": holdout["answered"],
-        "declined": holdout["declined"],
+        "retrieved_gold_rate": round(holdout["retrieved_gold"] / holdout["answerable"], 3),
+        "answered_rate": round(holdout["answered"] / holdout["answerable"], 3),
+        "declined_rate": round(holdout["declined"] / holdout["unanswerable"], 3),
     }
     baseline = json.loads(BASELINE.read_text()) if BASELINE.exists() else {}
 
     absolute = {
-        "gold chunk retrieved for at least 8 of 10": holdout["retrieved_gold"] >= 8,
+        "gold chunk retrieved for at least 80%": measured["retrieved_gold_rate"] >= 0.8,
     }
     regressions = {
         f"{name} no worse than {baseline[name]}": value >= baseline[name]
@@ -131,6 +155,13 @@ def main() -> int:
         "declines every unanswerable question": holdout["declined"] == holdout["unanswerable"],
         "answers every answerable question": holdout["answered"] == holdout["answerable"],
     }
+
+    if holdout["unavailable"]:
+        print(f"measurement invalid: the provider was unavailable for "
+              f"{holdout['unavailable']} of {len(load('holdout'))} holdout questions.")
+        print("re-run with --pace 2.5 to stay under the rate limit.")
+
+        return 2
 
     print("gate, on the holdout split")
 
