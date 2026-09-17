@@ -1,6 +1,9 @@
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from rag.api import app
+from rag.model import Generated
 
 client = TestClient(app)
 
@@ -13,7 +16,8 @@ def test_ask_returns_the_contract_fields():
 
     assert response.status_code == 200
     assert set(response.json()) == {
-        "answer", "grounded", "reason", "retrieval_confidence", "prompt_version", "sources",
+        "answer", "grounded", "reason", "retrieval_confidence", "grounding_score",
+        "prompt_version", "sources",
     }
 
 
@@ -44,3 +48,18 @@ def test_a_question_the_corpus_cannot_answer_is_declined_for_lack_of_evidence():
 
     assert body["reason"] == "insufficient_evidence"
     assert body["retrieval_confidence"] < 0.30
+
+
+def test_an_ungrounded_draft_is_withheld_whole():
+    uncited = Generated("Blocking a card is instant and refunds are automatic.")
+
+    with patch("rag.api.model.generate", return_value=uncited):
+        body = client.post(
+            "/ask",
+            json={"question": "what is the SEPA cut-off time"}
+        ).json()
+
+    assert body["grounded"] is False
+    assert body["answer"] is None
+    assert body["reason"] == "insufficient_evidence"
+    assert body["grounding_score"] == 0.0

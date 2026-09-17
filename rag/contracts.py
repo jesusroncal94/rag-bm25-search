@@ -22,6 +22,7 @@ class AskResponse(BaseModel):
     grounded: bool
     reason: DeclineReason | None
     retrieval_confidence: float
+    grounding_score: float | None
     prompt_version: str | None
     sources: list[Source]
 
@@ -30,6 +31,7 @@ class AskResponse(BaseModel):
         cls,
         answer: str,
         retrieval_confidence: float,
+        grounding_score: float,
         sources: list[Source],
         prompt_version: str,
     ) -> "AskResponse":
@@ -38,6 +40,7 @@ class AskResponse(BaseModel):
             grounded=True,
             reason=None,
             retrieval_confidence=round(retrieval_confidence, 3),
+            grounding_score=grounding_score,
             prompt_version=prompt_version,
             sources=sources,
         )
@@ -49,12 +52,14 @@ class AskResponse(BaseModel):
         retrieval_confidence: float,
         sources: list[Source] | None = None,
         prompt_version: str | None = None,
+        grounding_score: float | None = None,
     ) -> "AskResponse":
         return cls(
             answer=None,
             grounded=False,
             reason=reason,
             retrieval_confidence=round(retrieval_confidence, 3),
+            grounding_score=grounding_score,
             prompt_version=prompt_version,
             sources=sources or [],
         )

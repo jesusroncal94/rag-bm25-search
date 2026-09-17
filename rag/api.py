@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
-from rag import prompt
+from rag import guardrail, prompt
 from rag.chunking import Chunk
-from rag.config import RETRIEVAL_FLOOR
+from rag.config import GROUNDING_THRESHOLD, RETRIEVAL_FLOOR
 from rag.confidence import coverage
 from rag.contracts import AskRequest, AskResponse, Source
 from rag.corpus import load_corpus
@@ -43,7 +43,28 @@ def ask(request: AskRequest) -> AskResponse:
     if "INSUFFICIENT_EVIDENCE" in generated.text:
         return AskResponse.decline("insufficient_evidence", confidence, sources, prompt.VERSION)
 
-    return AskResponse.answered(generated.text, confidence, sources, prompt.VERSION)
+    grounding = guardrail.check(
+        generated.text,
+        retrieved={chunk.id for chunk in chunks},
+        threshold=GROUNDING_THRESHOLD,
+    )
+
+    if not grounding.passed:
+        return AskResponse.decline(
+            "insufficient_evidence",
+            confidence,
+            sources,
+            prompt.VERSION,
+            grounding.score,
+        )
+
+    return AskResponse.answered(
+        generated.text,
+        confidence,
+        grounding.score,
+        sources,
+        prompt.VERSION,
+    )
 
 
 def to_source(chunk: Chunk, score: float) -> Source:

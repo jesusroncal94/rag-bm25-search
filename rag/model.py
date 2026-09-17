@@ -29,8 +29,8 @@ class FakeModel:
 
         for chunk_id, text in chunks[:2]:
             match = FIRST_SENTENCE.match(text.strip())
-            sentence = match.group() if match else text.strip()
-            sentences.append(f"{sentence} [{chunk_id}]")
+            sentence = (match.group() if match else text.strip()).rstrip(".!?")
+            sentences.append(f"{sentence} [{chunk_id}].")
 
         return Generated(" ".join(sentences))
 
