@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 
 from rag.chunking import Chunk
+from rag.config import RETRIEVAL_FLOOR
+from rag.confidence import coverage
 from rag.contracts import AskRequest, AskResponse, Source
 from rag.corpus import load_corpus
 from rag.search import BM25Index
@@ -20,10 +22,17 @@ def health() -> dict[str, str]:
 def ask(request: AskRequest) -> AskResponse:
     found = index.search(request.question)
 
-    return AskResponse.decline(
-        "insufficient_evidence",
-        [to_source(chunk, score) for chunk, score in found],
-    )
+    if not found:
+        return AskResponse.decline("insufficient_evidence", 0.0)
+
+    best, _ = found[0]
+    confidence = coverage(index, request.question, best)
+    sources = [to_source(chunk, score) for chunk, score in found]
+
+    if confidence < RETRIEVAL_FLOOR:
+        return AskResponse.decline("insufficient_evidence", confidence, sources)
+
+    return AskResponse.decline("model_unavailable", confidence, sources)
 
 
 def to_source(chunk: Chunk, score: float) -> Source:

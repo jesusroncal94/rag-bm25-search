@@ -21,17 +21,20 @@ class AskResponse(BaseModel):
     answer: str | None
     grounded: bool
     reason: DeclineReason | None
+    retrieval_confidence: float
     sources: list[Source]
 
     @classmethod
     def decline(
         cls,
         reason: DeclineReason,
-        sources: list[Source] | None = None
+        retrieval_confidence: float,
+        sources: list[Source] | None = None,
     ) -> "AskResponse":
         return cls(
             answer=None,
             grounded=False,
             reason=reason,
+            retrieval_confidence=round(retrieval_confidence, 3),
             sources=sources or [],
         )
