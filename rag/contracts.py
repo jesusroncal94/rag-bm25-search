@@ -14,6 +14,7 @@ class Source(BaseModel):
     title: str
     section: str
     snippet: str
+    score: float
 
 
 class AskResponse(BaseModel):
