@@ -1,7 +1,7 @@
 [project]
 name = "rag-assistant"
 version = "0.1.0"
-description = "Add your description here"
+description = "Question answering over internal documents, with verifiable citations and an explicit refusal when the evidence is weak"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
