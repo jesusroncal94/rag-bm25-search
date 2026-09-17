@@ -1,4 +1,4 @@
-from python:3.12-slim
+FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /srv
@@ -8,4 +8,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD [ "uvicorn", "rag.api:app", "--host", "0.0.0.0", "--export", "8000" ]
+CMD [ "uvicorn", "rag.api:app", "--host", "0.0.0.0", "--port", "8000" ]
