@@ -11,7 +11,7 @@ from rag.search import BM25Index
 
 SNIPPET_LENGTH = 240
 
-app = FastAPI(title="RAG Assistant", version="0.1.0")
+app = FastAPI(title="RAG BM25 Search", version="0.1.0")
 index = BM25Index(load_corpus())
 model = build_model()
 

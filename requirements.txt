@@ -13,7 +13,7 @@ click==8.5.0
 colorama==0.4.6 ; sys_platform == 'win32'
     # via pytest
 fastapi==0.141.1
-    # via rag-assistant
+    # via rag-bm25-search
 h11==0.16.0
     # via
     #   httpcore2
@@ -21,7 +21,7 @@ h11==0.16.0
 httpcore2==2.13.0 ; sys_platform != 'emscripten'
     # via httpx2
 httpx2==2.13.0
-    # via rag-assistant
+    # via rag-bm25-search
 httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'
     # via httpx2
 idna==3.19
@@ -41,7 +41,7 @@ pydantic-core==2.46.5
 pygments==2.21.0
     # via pytest
 pytest==9.1.1
-    # via rag-assistant
+    # via rag-bm25-search
 starlette==1.6.0
     # via fastapi
 truststore==0.10.4 ; sys_platform != 'emscripten'
@@ -62,4 +62,4 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
 uvicorn==0.53.0
-    # via rag-assistant
+    # via rag-bm25-search

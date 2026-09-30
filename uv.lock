@@ -267,7 +267,7 @@ wheels = [
 ]
 
 [[package]]
-name = "rag-assistant"
+name = "rag-bm25-search"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

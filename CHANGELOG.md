@@ -13,6 +13,16 @@ The design this implements is in
 
 ## Unreleased
 
+### A name that says how it retrieves
+
+**Renamed** the project from `rag-assistant` to `rag-bm25-search`: the package, the script,
+the API title and the README.
+
+"Assistant" said nothing about the one decision that shapes everything else here, which is
+retrieval by BM25 rather than by embeddings. The name now carries it. A sibling project that
+retrieves with embeddings is `rag-embedding-search`, so the pair reads as the same problem
+solved two ways.
+
 ### Documentation, and an image that starts on its own
 
 **Added** a `README.md`, this changelog, and the source design under `docs/`.

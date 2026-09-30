@@ -1,4 +1,4 @@
-# RAG Assistant
+# RAG BM25 Search
 
 A question answering service over internal documents. It answers with verifiable citations,
 and it declines explicitly when the documents do not support an answer — a refusal returns the
