@@ -19,9 +19,7 @@ The design this implements is in
 the API title and the README.
 
 "Assistant" said nothing about the one decision that shapes everything else here, which is
-retrieval by BM25 rather than by embeddings. The name now carries it. A sibling project that
-retrieves with embeddings is `rag-embedding-search`, so the pair reads as the same problem
-solved two ways.
+retrieval by BM25 rather than by embeddings. The name now carries it.
 
 ### Documentation, and an image that starts on its own
 
