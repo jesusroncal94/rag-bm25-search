@@ -28,16 +28,27 @@ def ask(question: str) -> dict:
     return client.post("/ask", json={"question": question}).json()
 
 
-def measure(rows: list[dict], pace: float = 0.0) -> dict:
-    answered = declined = retrieved_gold = answerable = unanswerable = unavailable = 0
-    failures: list[str] = []
+def answer(rows: list[dict], pace: float = 0.0) -> list[tuple[dict, dict]]:
+    pairs = []
 
     for row in rows:
         if pace:
             time.sleep(pace)
 
-        body = ask(row["question"])
+        pairs.append((row, ask(row["question"])))
 
+    return pairs
+
+
+def measure(rows: list[dict], pace: float = 0.0) -> dict:
+    return tally(answer(rows, pace))
+
+
+def tally(pairs: list[tuple[dict, dict]]) -> dict:
+    answered = declined = retrieved_gold = answerable = unanswerable = unavailable = 0
+    failures: list[str] = []
+
+    for row, body in pairs:
         if body["reason"] == "model_unavailable":
             unavailable += 1
             failures.append(f"provider unavailable: {row['question']}")
@@ -122,18 +133,18 @@ def main() -> int:
 
     print(f"retrieval floor {RETRIEVAL_FLOOR}\n")
 
-    results = {split: measure(load(split), args.pace) for split in ("dev", "holdout")}
+    answers = {split: answer(load(split), args.pace) for split in ("dev", "holdout")}
+    results = {split: tally(pairs) for split, pairs in answers.items()}
 
     for split, result in results.items():
         report(split, result)
 
-    holdout_rows = load("holdout")
+    for split, pairs in answers.items():
+        for style in ("terse", "natural"):
+            subset = [(row, body) for row, body in pairs if row.get("style", "terse") == style]
 
-    for style in ("terse", "natural"):
-        rows = [row for row in holdout_rows if row.get("style", "terse") == style]
-
-        if rows:
-            report(f"holdout, {style} phrasing", measure(rows, args.pace))
+            if subset:
+                report(f"{split}, {style} phrasing", tally(subset))
 
     holdout = results["holdout"]
     measured = {

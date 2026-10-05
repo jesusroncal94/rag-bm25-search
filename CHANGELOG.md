@@ -13,6 +13,34 @@ The design this implements is in
 
 ## Unreleased
 
+### Natural questions in dev, so the fix can be chosen without looking at holdout
+
+**Added** fourteen dev questions phrased the way a customer writes — eight answerable, six not
+— and a per-phrasing breakdown of dev in the report.
+
+Every natural question was in holdout. Choosing a change to confidence by how it moved those
+nine would have tuned on the split that exists to be untouched. The answerable ones point at
+sections no natural holdout question uses; the unanswerable ones sit deliberately close to the
+corpus vocabulary — card limits, currency, a new device — so a change that simply raises
+confidence across the board shows up as a false answer.
+
+The baseline they set, with the deterministic stand-in:
+
+| dev | Gold in top 5 | Gold in top 1 | Answered | Declined when it must |
+|---|---|---|---|---|
+| Terse | 10 of 10 | — | 9 of 10 | 6 of 6 |
+| Natural | 7 of 8 | 4 of 8 | **0 of 8** | 6 of 6 |
+
+Answerable natural questions score 0.087 to 0.179 and unanswerable ones 0.075 to 0.154, so no
+floor separates them; the measure has to change, not the threshold. The cause is visible term
+by term: a word the corpus never uses gets the highest rarity, and the corpus is written in the
+third person, so "I", "my", "how" and "what" weigh most in the ceiling of every question a
+customer writes.
+
+**Changed** the evaluator to ask each question once. The per-phrasing breakdown asked the
+holdout questions a second time, which would have meant 96 provider calls on a 55-question
+run; it now reuses the answers it already has.
+
 ### A name that says how it retrieves
 
 **Renamed** the project from `rag-assistant` to `rag-bm25-search`: the package, the script,
