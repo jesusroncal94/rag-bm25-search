@@ -1,5 +1,12 @@
 {
-  "retrieved_gold_rate": 1.0,
-  "answered_rate": 0.562,
-  "declined_rate": 0.889
+  "fake": {
+    "retrieved_gold_rate": 1.0,
+    "answered_rate": 0.562,
+    "declined_rate": 0.889
+  },
+  "qwen/qwen3.8-27b": {
+    "retrieved_gold_rate": 1.0,
+    "answered_rate": 0.875,
+    "declined_rate": 1.0
+  }
 }

@@ -13,6 +13,41 @@ The design this implements is in
 
 ## Unreleased
 
+### One baseline per model, and the rewrite's holdout result
+
+**Changed** the no-regression baseline to one set of rates per model, and the gate to compare a
+run against the baseline of the model that produced it.
+
+The gain from the rewrite only exists with a real model; the stand-in leaves the question as it
+is. With a single baseline at the new rates, every offline run — the free, hermetic one — would
+fail the gate forever. Leaving it at the old rates would let a real run lose the whole gain and
+stay green. So the stand-in keeps **0.562** answered and **0.889** declined, which still guards
+retrieval and confidence, and `qwen/qwen3.8-27b` gets the rates of its first holdout run:
+answered **0.875**, declined **1.000**, retrieval 1.0. A model with no entry gets no regression
+check, and says so.
+
+| holdout | Answered, before → after | Declined when it must, before → after |
+|---|---|---|
+| Terse | 8 → 9 of 10 | 5 → 6 of 6 |
+| Natural | **1 → 5 of 6** | 3 → 3 of 3 |
+
+Holdout was run once, after every choice had been made on dev, with `qwen/qwen3.8-27b` at
+`--pace 10` and no provider failures. The "before" is the published baseline, which an offline
+run reproduces exactly — every one of its failures was the retrieval floor, which no model
+touches — but it was never measured on holdout with this model.
+
+Both remaining misses are the floor, not the model: "do I get provisional credit when an item
+never arrived" at 0.297, and a transfer that "bounces back" at 0.142 — the corpus says
+*returned*, and the rewrite is told not to add words. "How do I set up a standing order", the
+one unanswerable question that used to get through, is now declined.
+
+The `qwen` entry was written by hand from that run rather than by `--record`, which would have
+spent another 110 calls to measure the same thing. `--record` now writes only the entry of the
+model it ran with.
+
+**Changed** the evaluator's advice on a rate limit from `--pace 2.5` to `--pace 10`: each
+question now makes two calls, and the free tier refused generation calls at 2.5 seconds apart.
+
 ### The model rewrites the question before the search
 
 **Added** `rag/rewrite.py`. Before searching, the model reduces the question to the words that

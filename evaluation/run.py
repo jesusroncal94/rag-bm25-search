@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from rag.api import app
+from rag.api import app, model
 from rag.config import RETRIEVAL_FLOOR
 
 DATASET = Path(__file__).resolve().parent / "dataset.jsonl"
@@ -152,7 +152,8 @@ def main() -> int:
         "answered_rate": round(holdout["answered"] / holdout["answerable"], 3),
         "declined_rate": round(holdout["declined"] / holdout["unanswerable"], 3),
     }
-    baseline = json.loads(BASELINE.read_text()) if BASELINE.exists() else {}
+    baselines = json.loads(BASELINE.read_text()) if BASELINE.exists() else {}
+    baseline = baselines.get(model.name, {})
 
     absolute = {
         "gold chunk retrieved for at least 80%": measured["retrieved_gold_rate"] >= 0.8,
@@ -170,24 +171,25 @@ def main() -> int:
     if holdout["unavailable"]:
         print(f"measurement invalid: the provider was unavailable for "
               f"{holdout['unavailable']} of {len(load('holdout'))} holdout questions.")
-        print("re-run with --pace 2.5 to stay under the rate limit.")
+        print("re-run with --pace 10 to stay under the rate limit.")
 
         return 2
 
-    print("gate, on the holdout split")
+    print(f"gate, on the holdout split, for {model.name}")
 
     for name, ok in {**absolute, **regressions}.items():
         print(f"   {'PASS' if ok else 'FAIL'}  {name}")
 
     if not regressions:
-        print("   (no baseline recorded; run with --record)")
+        print(f"   (no baseline recorded for {model.name}; run with --record)")
 
     for name, met in open_targets.items():
         print(f"   {'MET ' if met else 'OPEN'}  {name}")
 
     if args.record:
-        BASELINE.write_text(json.dumps(measured, indent=2))
-        print(f"\nbaseline recorded: {measured}")
+        baselines[model.name] = measured
+        BASELINE.write_text(json.dumps(baselines, indent=2))
+        print(f"\nbaseline recorded for {model.name}: {measured}")
 
     return 0 if all(absolute.values()) and all(regressions.values()) else 1
 
