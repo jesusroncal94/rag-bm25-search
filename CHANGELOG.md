@@ -26,20 +26,26 @@ retrieval and confidence, and `qwen/qwen3.8-27b` gets the rates of its first hol
 answered **0.875**, declined **1.000**, retrieval 1.0. A model with no entry gets no regression
 check, and says so.
 
+Holdout, both columns with `qwen/qwen3.8-27b`, each run once with no provider failures:
+
 | holdout | Answered, before → after | Declined when it must, before → after |
 |---|---|---|
-| Terse | 8 → 9 of 10 | 5 → 6 of 6 |
+| Terse | 8 → 9 of 10 | 6 → 6 of 6 |
 | Natural | **1 → 5 of 6** | 3 → 3 of 3 |
+| Overall | 0.562 → **0.875** | 1.000 → 1.000 |
 
-Holdout was run once, after every choice had been made on dev, with `qwen/qwen3.8-27b` at
-`--pace 10` and no provider failures. The "before" is the published baseline, which an offline
-run reproduces exactly — every one of its failures was the retrieval floor, which no model
-touches — but it was never measured on holdout with this model.
+The "after" was run once, after every choice had been made on dev. The "before" is the code
+just ahead of the rewrite, run on holdout afterwards with the same model and nothing changed.
+
+That second run corrected a claim. Against the published baseline, declines seemed to rise from
+0.889 to 1.000, with "how do I set up a standing order" no longer getting through. But that
+0.889 came from the stand-in, which answers anything that clears the floor; `qwen` already
+declined the standing order before the rewrite existed. The decline rate is the model's, not
+the rewrite's. **What the rewrite bought is answers — 9 to 14 of 16 — at no cost in declines.**
 
 Both remaining misses are the floor, not the model: "do I get provisional credit when an item
 never arrived" at 0.297, and a transfer that "bounces back" at 0.142 — the corpus says
-*returned*, and the rewrite is told not to add words. "How do I set up a standing order", the
-one unanswerable question that used to get through, is now declined.
+*returned*, and the rewrite is told not to add words.
 
 The `qwen` entry was written by hand from that run rather than by `--record`, which would have
 spent another 110 calls to measure the same thing. `--record` now writes only the entry of the
