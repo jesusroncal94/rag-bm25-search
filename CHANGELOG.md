@@ -13,6 +13,141 @@ The design this implements is in
 
 ## Unreleased
 
+### One baseline per model, and the rewrite's holdout result
+
+**Changed** the no-regression baseline to one set of rates per model, and the gate to compare a
+run against the baseline of the model that produced it.
+
+The gain from the rewrite only exists with a real model; the stand-in leaves the question as it
+is. With a single baseline at the new rates, every offline run — the free, hermetic one — would
+fail the gate forever. Leaving it at the old rates would let a real run lose the whole gain and
+stay green. So the stand-in keeps **0.562** answered and **0.889** declined, which still guards
+retrieval and confidence, and `qwen/qwen3.8-27b` gets the rates of its first holdout run:
+answered **0.875**, declined **1.000**, retrieval 1.0. A model with no entry gets no regression
+check, and says so.
+
+Holdout, both columns with `qwen/qwen3.8-27b`, each run once with no provider failures:
+
+| holdout | Answered, before → after | Declined when it must, before → after |
+|---|---|---|
+| Terse | 8 → 9 of 10 | 6 → 6 of 6 |
+| Natural | **1 → 5 of 6** | 3 → 3 of 3 |
+| Overall | 0.562 → **0.875** | 1.000 → 1.000 |
+
+The "after" was run once, after every choice had been made on dev. The "before" is the code
+just ahead of the rewrite, run on holdout afterwards with the same model and nothing changed.
+
+That second run corrected a claim. Against the published baseline, declines seemed to rise from
+0.889 to 1.000, with "how do I set up a standing order" no longer getting through. But that
+0.889 came from the stand-in, which answers anything that clears the floor; `qwen` already
+declined the standing order before the rewrite existed. The decline rate is the model's, not
+the rewrite's. **What the rewrite bought is answers — 9 to 14 of 16 — at no cost in declines.**
+
+Both remaining misses are the floor, not the model: "do I get provisional credit when an item
+never arrived" at 0.297, and a transfer that "bounces back" at 0.142 — the corpus says
+*returned*, and the rewrite is told not to add words.
+
+The `qwen` entry was written by hand from that run rather than by `--record`, which would have
+spent another 110 calls to measure the same thing. `--record` now writes only the entry of the
+model it ran with.
+
+**Changed** the evaluator's advice on a rate limit from `--pace 2.5` to `--pace 10`: each
+question now makes two calls, and the free tier refused generation calls at 2.5 seconds apart.
+
+### The model rewrites the question before the search
+
+**Added** `rag/rewrite.py`. Before searching, the model reduces the question to the words that
+name what is being asked; search and confidence run on that query, while the answer is still
+written for the question as asked, since the rewrite drops context the answer may need. If the
+rewrite fails, the search runs on the original question — at worst, the service behaves as it
+did before. Retrieval is still BM25 alone.
+
+**Changed** the answering prompt to `1.1`: when the chunks do not answer, reply with exactly
+`INSUFFICIENT_EVIDENCE` and nothing else, and never cite a chunk to say it is missing. The
+version covers both prompts.
+
+Measured on the dev split with `qwen/qwen3.8-27b`, floor unchanged at 0.30:
+
+| dev | Answered (terse · natural) | Declined when it must |
+|---|---|---|
+| Before | 9/10 · 0/8 | 12/12 |
+| Rewrite, prompt 1.0 | 10/10 · 6/8 | 11/12 |
+| **Rewrite, prompt 1.1** | **10/10 · 6/8** | **12/12** |
+
+The rewrite alone does not separate anything: it raises the confidence of unanswerable questions
+too — "mortgage application" goes from 0.18 to 0.41 — and with the floor as the only filter,
+declining all twelve leaves 8 answered instead of 9. It works because the floor is not the only
+filter: the model declined four of the five unanswerable questions that passed it.
+
+The fifth exposed a defect older than the rewrite. Asked about joint accounts, the model refused
+in its own words and cited a chunk to say so — "The provided chunks do not contain information
+regarding the opening of a joint account [account-and-verification#eligibility]" — and the
+guardrail, which checks citations, passed it as a grounded answer. A refusal with a citation
+looks exactly like an answer. Fixed in the prompt rather than by matching refusal phrases,
+which would be one more list tuned by hand.
+
+The cost is a second model call per question, before the search. A full evaluation run doubles
+to about 110 calls, and the generation calls hit the free tier's limit at 2.5 seconds apart; 6
+held. The stand-in leaves the question as it is, so tests stay hermetic and offline runs measure
+what they did before — but the gain only exists with a real model, and only a real run measures
+it.
+
+### Stopwords and stemming in confidence, measured and set aside
+
+**Measured** two lexical changes to confidence on the dev split, and kept neither. Both use
+off-the-shelf parts — NLTK's English stopword list, unedited, and the Snowball stemmer — so the
+list itself is not one more thing tuned by hand.
+
+| dev | Gold in top 1 (terse · natural) | Answered at 0.30 (terse · natural) | Declined at 0.30 | Answered, floor declining all 12 |
+|---|---|---|---|---|
+| Current | 8/10 · 4/8 | 9/10 · **0/8** | 12/12 | 9/10 · 0/8 |
+| Stopwords out of confidence | 8/10 · 4/8 | 9/10 · 0/8 | 9/12 | 6/10 · 0/8 |
+| … and out of search | 9/10 · 5/8 | 9/10 · 0/8 | 9/12 | 6/10 · 0/8 |
+| … and stemmed | **10/10 · 7/8** | 9/10 · 0/8 | 9/12 | 2/10 · 0/8 |
+
+Stopwords were only half of the diagnosis. What sinks a natural question is the customer's own
+situation — *concert*, *tickets*, *landlord*, *hotel*, *daughter* — and with the stopwords gone
+those words weigh even more. Meanwhile a short unanswerable question collapses to its content
+words: "how do I apply for a mortgage" becomes *apply mortgage*, *apply* is in the corpus, and
+confidence reaches 0.50.
+
+Two other measures went the same way. Absolute matched rarity, rather than a ratio, answers 3
+natural questions in 8 but costs 2 terse ones — 10 of 18 against 9, too small a difference on
+this many questions to trust. A ratio over only the terms the corpus knows scores "what interest
+rate do you pay on savings" at 1.000.
+
+Any measure that compares the question's words with the corpus's penalises the customer's
+vocabulary. Stemming does lift the right chunk to the top, but it changes no answer, because
+the model already reads the top five.
+
+### Natural questions in dev, so the fix can be chosen without looking at holdout
+
+**Added** fourteen dev questions phrased the way a customer writes — eight answerable, six not
+— and a per-phrasing breakdown of dev in the report.
+
+Every natural question was in holdout. Choosing a change to confidence by how it moved those
+nine would have tuned on the split that exists to be untouched. The answerable ones point at
+sections no natural holdout question uses; the unanswerable ones sit deliberately close to the
+corpus vocabulary — card limits, currency, a new device — so a change that simply raises
+confidence across the board shows up as a false answer.
+
+The baseline they set, with the deterministic stand-in:
+
+| dev | Gold in top 5 | Gold in top 1 | Answered | Declined when it must |
+|---|---|---|---|---|
+| Terse | 10 of 10 | — | 9 of 10 | 6 of 6 |
+| Natural | 7 of 8 | 4 of 8 | **0 of 8** | 6 of 6 |
+
+Answerable natural questions score 0.087 to 0.179 and unanswerable ones 0.075 to 0.154, so no
+floor separates them; the measure has to change, not the threshold. The cause is visible term
+by term: a word the corpus never uses gets the highest rarity, and the corpus is written in the
+third person, so "I", "my", "how" and "what" weigh most in the ceiling of every question a
+customer writes.
+
+**Changed** the evaluator to ask each question once. The per-phrasing breakdown asked the
+holdout questions a second time, which would have meant 96 provider calls on a 55-question
+run; it now reuses the answers it already has.
+
 ### A name that says how it retrieves
 
 **Renamed** the project from `rag-assistant` to `rag-bm25-search`: the package, the script,

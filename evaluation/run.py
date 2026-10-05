@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from rag.api import app
+from rag.api import app, model
 from rag.config import RETRIEVAL_FLOOR
 
 DATASET = Path(__file__).resolve().parent / "dataset.jsonl"
@@ -28,16 +28,27 @@ def ask(question: str) -> dict:
     return client.post("/ask", json={"question": question}).json()
 
 
-def measure(rows: list[dict], pace: float = 0.0) -> dict:
-    answered = declined = retrieved_gold = answerable = unanswerable = unavailable = 0
-    failures: list[str] = []
+def answer(rows: list[dict], pace: float = 0.0) -> list[tuple[dict, dict]]:
+    pairs = []
 
     for row in rows:
         if pace:
             time.sleep(pace)
 
-        body = ask(row["question"])
+        pairs.append((row, ask(row["question"])))
 
+    return pairs
+
+
+def measure(rows: list[dict], pace: float = 0.0) -> dict:
+    return tally(answer(rows, pace))
+
+
+def tally(pairs: list[tuple[dict, dict]]) -> dict:
+    answered = declined = retrieved_gold = answerable = unanswerable = unavailable = 0
+    failures: list[str] = []
+
+    for row, body in pairs:
         if body["reason"] == "model_unavailable":
             unavailable += 1
             failures.append(f"provider unavailable: {row['question']}")
@@ -122,18 +133,18 @@ def main() -> int:
 
     print(f"retrieval floor {RETRIEVAL_FLOOR}\n")
 
-    results = {split: measure(load(split), args.pace) for split in ("dev", "holdout")}
+    answers = {split: answer(load(split), args.pace) for split in ("dev", "holdout")}
+    results = {split: tally(pairs) for split, pairs in answers.items()}
 
     for split, result in results.items():
         report(split, result)
 
-    holdout_rows = load("holdout")
+    for split, pairs in answers.items():
+        for style in ("terse", "natural"):
+            subset = [(row, body) for row, body in pairs if row.get("style", "terse") == style]
 
-    for style in ("terse", "natural"):
-        rows = [row for row in holdout_rows if row.get("style", "terse") == style]
-
-        if rows:
-            report(f"holdout, {style} phrasing", measure(rows, args.pace))
+            if subset:
+                report(f"{split}, {style} phrasing", tally(subset))
 
     holdout = results["holdout"]
     measured = {
@@ -141,7 +152,8 @@ def main() -> int:
         "answered_rate": round(holdout["answered"] / holdout["answerable"], 3),
         "declined_rate": round(holdout["declined"] / holdout["unanswerable"], 3),
     }
-    baseline = json.loads(BASELINE.read_text()) if BASELINE.exists() else {}
+    baselines = json.loads(BASELINE.read_text()) if BASELINE.exists() else {}
+    baseline = baselines.get(model.name, {})
 
     absolute = {
         "gold chunk retrieved for at least 80%": measured["retrieved_gold_rate"] >= 0.8,
@@ -159,24 +171,25 @@ def main() -> int:
     if holdout["unavailable"]:
         print(f"measurement invalid: the provider was unavailable for "
               f"{holdout['unavailable']} of {len(load('holdout'))} holdout questions.")
-        print("re-run with --pace 2.5 to stay under the rate limit.")
+        print("re-run with --pace 10 to stay under the rate limit.")
 
         return 2
 
-    print("gate, on the holdout split")
+    print(f"gate, on the holdout split, for {model.name}")
 
     for name, ok in {**absolute, **regressions}.items():
         print(f"   {'PASS' if ok else 'FAIL'}  {name}")
 
     if not regressions:
-        print("   (no baseline recorded; run with --record)")
+        print(f"   (no baseline recorded for {model.name}; run with --record)")
 
     for name, met in open_targets.items():
         print(f"   {'MET ' if met else 'OPEN'}  {name}")
 
     if args.record:
-        BASELINE.write_text(json.dumps(measured, indent=2))
-        print(f"\nbaseline recorded: {measured}")
+        baselines[model.name] = measured
+        BASELINE.write_text(json.dumps(baselines, indent=2))
+        print(f"\nbaseline recorded for {model.name}: {measured}")
 
     return 0 if all(absolute.values()) and all(regressions.values()) else 1
 

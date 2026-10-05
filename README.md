@@ -61,19 +61,21 @@ uv run pytest -q
 uv run python -m evaluation.run
 ```
 
-The evaluation runs 41 questions through the real endpoint and exits non-zero on a regression.
-`--sweep` shows what other retrieval floors would cost; `--record` moves the baseline, which
-should be a deliberate act in its own commit.
+The evaluation runs 55 questions through the real endpoint and exits non-zero on a regression.
+The baseline is kept per model, and a run is compared with the baseline of the model that
+produced it. `--sweep` shows what other retrieval floors would cost; `--record` moves the
+baseline of the model it ran with, which should be a deliberate act in its own commit.
 
 ## What is where
 
 | Path | |
 |---|---|
 | `rag/api.py` | The endpoint. Six ways out, in the order they are decided.  |
+| `rag/rewrite.py` | The question reduced to a search query, falling back to the question as asked. |
 | `rag/search.py` | BM25 over the chunks. |
 | `rag/confidence.py` | How far the retrieved evidence can be trusted. |
 | `rag/guardrail.py` | Whether the answer is held up by what was retrieved. |
-| `rag/prompt.py` | The prompt, versioned. Its version travels with every answer. |
+| `rag/prompt.py` | The prompts, versioned together. The version travels with every answer. |
 | `rag/model.py` | A deterministic stand-in, or any OpenAI-compatible endpoint. |
 | `rag/config.py` | Every threshold. Each one arrived when a step needed it. |
 | `evaluation/` | The question set, the metrics, and the gate. |
@@ -81,22 +83,34 @@ should be a deliberate act in its own commit.
 
 ## Where it actually stands
 
-Measured on the holdout split, which was written after the thresholds were chosen and never
-used to pick anything:
+Measured with `qwen/qwen3.8-27b` on the holdout split, which was written after every choice was
+made and never used to pick anything:
 
-| | Gold chunk retrieved | Answered when it could |
-|---|---|---|
-| Terse questions | 10 of 10 | 8 of 10 |
-| Questions phrased the way a customer writes | 6 of 6 | **1 of 6** |
+| | Gold chunk retrieved | Answered when it could | Declined when it must |
+|---|---|---|---|
+| Terse questions | 10 of 10 | 9 of 10 | 6 of 6 |
+| Questions phrased the way a customer writes | 6 of 6 | **5 of 6** | 3 of 3 |
 
-**Retrieval is perfect and answering is not.** Confidence is a ratio over every term in the
-question, so a long, natural question carries more words the corpus never uses and each one
-counts against it. No threshold fixes this: reaching every unanswerable question costs four
-answerable ones in ten.
+Before the model rewrote the question, natural phrasing answered **1 of 6**. Confidence is a ratio
+over every term in the question, so a customer's own words — the hotel, the landlord, "I" and
+"my", which a policy written in the third person never uses — counted against it. Stopwords,
+stemming and two other confidence measures did not close the gap; the changelog has the numbers.
+What did is letting the model reduce the question to its key terms before the search, while the
+answer is still written for the question as asked. Retrieval is still BM25 alone.
 
-The cause is that a bag of words cannot tell that "block" and "stops payments" are the same
-idea. Raising the ceiling needs dense retrieval or reranking, both deliberately out of scope
-here. The gap is left in place and reported on every run rather than hidden.
+What it costs, and what it does not fix:
+
+- **A second model call per question**, before the search. The rewrite spends latency the
+  answer used to have to itself, and a full evaluation run makes about 110 calls.
+- **The gain needs a real model.** The stand-in leaves the question as it is, so offline runs
+  still answer 9 of 16 holdout questions; they guard retrieval and confidence, not the rewrite.
+- **A word the corpus never uses still loses.** A transfer that "bounces back" scores 0.142,
+  because the corpus says *returned* and the rewrite is told not to add words. Another question
+  misses the floor by 0.003.
+- **It rests on the model declining.** Rewritten, some unanswerable questions clear the floor —
+  "mortgage application" scores 0.41 — and are stopped by the model answering
+  `INSUFFICIENT_EVIDENCE`. Every unanswerable question in dev and holdout was declined, on one
+  run each; that is a behaviour of this model, measured, not a guarantee.
 
 ## Using a real model
 
@@ -105,7 +119,7 @@ hermetic and CI free. To use a real one, put the credentials in `.env`:
 
 ```
 MODEL_BASE_URL=https://api.groq.com/openai/v1
-MODEL_NAME=llama-3.3-70b-versatile
+MODEL_NAME=qwen/qwen3.8-27b
 MODEL_API_KEY=
 ```
 
@@ -116,6 +130,7 @@ uv run --env-file .env uvicorn rag.api:app --port 8000
 Keep the flag explicit rather than exporting the file globally: `uv run pytest` would then hit
 the provider on every run, which costs money and makes the suite depend on a provider's mood.
 
-A free tier will rate-limit a full evaluation run. Use `--pace 2.5` to stay under it — and note
+A free tier will rate-limit a full evaluation run. Each question makes two calls, one to
+rewrite it and one to answer it; use `--pace 10` to stay under the limit — and note
 that the evaluator refuses to render a verdict at all if any call failed, because a run the
 provider refused measured nothing.
