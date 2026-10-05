@@ -8,6 +8,7 @@ from rag.config import MODEL_API_KEY, MODEL_BASE_URL, MODEL_NAME, MODEL_TIMEOUT_
 
 CHUNK_ID = re.compile(r'<chunk id="([^"]+)">\n(.*?)\n</chunk>', re.DOTALL)
 FIRST_SENTENCE = re.compile(r"^.*?[.!?](?=\s|$)")
+QUESTION = re.compile(r"^Question: (.*)$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -24,7 +25,9 @@ class FakeModel:
         chunks = CHUNK_ID.findall(prompt)
 
         if not chunks:
-            return Generated("INSUFFICIENT_EVIDENCE")
+            question = QUESTION.search(prompt)
+
+            return Generated(question.group(1) if question else "INSUFFICIENT_EVIDENCE")
 
         sentences = []
 

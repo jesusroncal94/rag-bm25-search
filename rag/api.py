@@ -7,6 +7,7 @@ from rag.confidence import coverage
 from rag.contracts import AskRequest, AskResponse, Source
 from rag.corpus import load_corpus
 from rag.model import build_model
+from rag.rewrite import rewrite
 from rag.search import BM25Index
 
 SNIPPET_LENGTH = 240
@@ -23,13 +24,14 @@ def health() -> dict[str, str]:
 
 @app.post("/ask")
 def ask(request: AskRequest) -> AskResponse:
-    found = index.search(request.question)
+    query = rewrite(model, request.question)
+    found = index.search(query)
 
     if not found:
         return AskResponse.decline("insufficient_evidence", 0.0)
 
     chunks = [chunk for chunk, _ in found]
-    confidence = coverage(index, request.question, chunks[0])
+    confidence = coverage(index, query, chunks[0])
     sources = [to_source(chunk, score) for chunk, score in found]
 
     if confidence < RETRIEVAL_FLOOR:

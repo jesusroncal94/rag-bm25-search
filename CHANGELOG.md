@@ -13,6 +13,72 @@ The design this implements is in
 
 ## Unreleased
 
+### The model rewrites the question before the search
+
+**Added** `rag/rewrite.py`. Before searching, the model reduces the question to the words that
+name what is being asked; search and confidence run on that query, while the answer is still
+written for the question as asked, since the rewrite drops context the answer may need. If the
+rewrite fails, the search runs on the original question — at worst, the service behaves as it
+did before. Retrieval is still BM25 alone.
+
+**Changed** the answering prompt to `1.1`: when the chunks do not answer, reply with exactly
+`INSUFFICIENT_EVIDENCE` and nothing else, and never cite a chunk to say it is missing. The
+version covers both prompts.
+
+Measured on the dev split with `qwen/qwen3.8-27b`, floor unchanged at 0.30:
+
+| dev | Answered (terse · natural) | Declined when it must |
+|---|---|---|
+| Before | 9/10 · 0/8 | 12/12 |
+| Rewrite, prompt 1.0 | 10/10 · 6/8 | 11/12 |
+| **Rewrite, prompt 1.1** | **10/10 · 6/8** | **12/12** |
+
+The rewrite alone does not separate anything: it raises the confidence of unanswerable questions
+too — "mortgage application" goes from 0.18 to 0.41 — and with the floor as the only filter,
+declining all twelve leaves 8 answered instead of 9. It works because the floor is not the only
+filter: the model declined four of the five unanswerable questions that passed it.
+
+The fifth exposed a defect older than the rewrite. Asked about joint accounts, the model refused
+in its own words and cited a chunk to say so — "The provided chunks do not contain information
+regarding the opening of a joint account [account-and-verification#eligibility]" — and the
+guardrail, which checks citations, passed it as a grounded answer. A refusal with a citation
+looks exactly like an answer. Fixed in the prompt rather than by matching refusal phrases,
+which would be one more list tuned by hand.
+
+The cost is a second model call per question, before the search. A full evaluation run doubles
+to about 110 calls, and the generation calls hit the free tier's limit at 2.5 seconds apart; 6
+held. The stand-in leaves the question as it is, so tests stay hermetic and offline runs measure
+what they did before — but the gain only exists with a real model, and only a real run measures
+it.
+
+### Stopwords and stemming in confidence, measured and set aside
+
+**Measured** two lexical changes to confidence on the dev split, and kept neither. Both use
+off-the-shelf parts — NLTK's English stopword list, unedited, and the Snowball stemmer — so the
+list itself is not one more thing tuned by hand.
+
+| dev | Gold in top 1 (terse · natural) | Answered at 0.30 (terse · natural) | Declined at 0.30 | Answered, floor declining all 12 |
+|---|---|---|---|---|
+| Current | 8/10 · 4/8 | 9/10 · **0/8** | 12/12 | 9/10 · 0/8 |
+| Stopwords out of confidence | 8/10 · 4/8 | 9/10 · 0/8 | 9/12 | 6/10 · 0/8 |
+| … and out of search | 9/10 · 5/8 | 9/10 · 0/8 | 9/12 | 6/10 · 0/8 |
+| … and stemmed | **10/10 · 7/8** | 9/10 · 0/8 | 9/12 | 2/10 · 0/8 |
+
+Stopwords were only half of the diagnosis. What sinks a natural question is the customer's own
+situation — *concert*, *tickets*, *landlord*, *hotel*, *daughter* — and with the stopwords gone
+those words weigh even more. Meanwhile a short unanswerable question collapses to its content
+words: "how do I apply for a mortgage" becomes *apply mortgage*, *apply* is in the corpus, and
+confidence reaches 0.50.
+
+Two other measures went the same way. Absolute matched rarity, rather than a ratio, answers 3
+natural questions in 8 but costs 2 terse ones — 10 of 18 against 9, too small a difference on
+this many questions to trust. A ratio over only the terms the corpus knows scores "what interest
+rate do you pay on savings" at 1.000.
+
+Any measure that compares the question's words with the corpus's penalises the customer's
+vocabulary. Stemming does lift the right chunk to the top, but it changes no answer, because
+the model already reads the top five.
+
 ### Natural questions in dev, so the fix can be chosen without looking at holdout
 
 **Added** fourteen dev questions phrased the way a customer writes — eight answerable, six not
